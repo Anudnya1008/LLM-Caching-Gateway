@@ -9,6 +9,7 @@ from semantic_cache import (
     find_semantic_match,
     store_semantic_response
 )
+from kafka_producer import publish_event
 app = FastAPI(title="LLM Cache Gateway")
 
 @app.get("/")
@@ -34,6 +35,7 @@ def ask_llm(request: Request, question:str = Query(min_length=1)):
     if cached_response is not None:
         increment_metric("cache_hits")
         response_time = (time.perf_counter() - start_time) * 1000
+        publish_event("exact_cache_hit", response_time)
         return {
             "question": question,
             "answer": cached_response,
@@ -50,7 +52,7 @@ def ask_llm(request: Request, question:str = Query(min_length=1)):
         set_cached_response(question, semantic_response)
 
         response_time = (time.perf_counter() - start_time) * 1000
-
+        publish_event("semantic_cache_hit", response_time)
         return {
             "question": question,
             "answer": semantic_response,
@@ -65,7 +67,7 @@ def ask_llm(request: Request, question:str = Query(min_length=1)):
     store_semantic_response(question, response)
 
     response_time = (time.perf_counter() - start_time) * 1000
-
+    publish_event("llm_call", response_time)
     return {
         "question": question,
         "answer": response,
